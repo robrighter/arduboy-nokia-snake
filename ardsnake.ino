@@ -58,7 +58,6 @@ byte getJoystickDirection(){
 
 boolean moveTheSnake(byte direction, boolean grow){
   //find the tail (-1,-1)
-  Serial.print("moveTheSnake: find the tail (-1,-1)\n");
   int8_t offset = 0;
   while(xSnake[offset]>-1){
     offset++;
@@ -66,18 +65,15 @@ boolean moveTheSnake(byte direction, boolean grow){
   int8_t xTail = offset + (grow ? 1 : 0);
   int8_t yTail = offset + (grow ? 1 : 0);
   
-  Serial.print("moveTheSnake: count back and move all the array values down\n");
   while(offset>-1){
     xSnake[offset+1] = xSnake[offset]; 
     ySnake[offset+1] = ySnake[offset]; 
     offset--;
   }
 
-  Serial.print("moveTheSnake: make the new tail\n");
   xSnake[xTail] = -1;
   ySnake[yTail] = -1;
 
-  Serial.print("moveTheSnake: insert the new coord at the head (0,0)\n");
   if(direction == JOYSTICK_DIRECTION_UP){
       ySnake[0]--;
       if(ySnake[0]<0){
@@ -111,17 +107,12 @@ boolean moveTheSnake(byte direction, boolean grow){
 }
 
 boolean isCoordInSnake(int8_t x, int8_t y, byte startFrom=0){
-  //char toprint[100];
-  //sprintf(toprint, "isCoordInSnake x=%d y=%d starting from %d", x, y, startFrom);
-  //Serial.println(toprint);
   while(xSnake[startFrom] != -1){
     if((xSnake[startFrom] == x) && (ySnake[startFrom] == y)){
-      //Serial.println("Returning True");
       return true;  
     }
     startFrom++;
   }
-  //Serial.println("Returning False");
   return false;
 }
 
@@ -160,7 +151,6 @@ void setNewApplePosition(byte direction){
 }
 
 byte readNewSnakeDirection(){
-  Serial.print("readNewSnakeDirection - Listening for new direction\n"); 
   for(byte i=0; i<(countDownDelay - snakeLevel ); i++){
     byte readDirection = getJoystickDirection();
     if((readDirection != JOYSTICK_DIRECTION_NONE) && (readDirection != JOYSTICK_DIRECTION_CENTER)){
@@ -168,7 +158,6 @@ byte readNewSnakeDirection(){
     }
     delay(10);
   }
-  Serial.println("readNewSnakeDirection - Returning direction of "+currentSnakeDirection);
   return currentSnakeDirection;
 }
 
@@ -242,14 +231,12 @@ void loop() {
 
   delay(90);
   boolean isGameOverEvent = false;
-  Serial.print("move the snake in the recorded direction\n"); 
   isGameOverEvent = moveTheSnake(currentSnakeDirection, shouldGrow);
   if(shouldGrow){
     //last time we ate the apple so lets move it to a new location
     setNewApplePosition(currentSnakeDirection);
   }
 
-  Serial.print("draw the moved snake\n"); 
   clearMatrix();
   arduboy.clear();
   drawSnake();
@@ -281,7 +268,6 @@ void loop() {
     shouldGrow = false;
   }
 
-  Serial.print("Read the new direction\n");
   readNewSnakeDirection();
 
 }
