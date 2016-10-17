@@ -1,6 +1,9 @@
 #include "Arduboy.h"
 #include "matrixscreen.h"
+#include <EEPROM.h>
 Arduboy arduboy;
+
+#define EEPROM_HIGH_SCORE 256
 
 const byte JOYSTICK_DIRECTION_NONE = 5;
 const byte JOYSTICK_DIRECTION_UP = 2;
@@ -12,13 +15,57 @@ const byte JOYSTICK_DIRECTION_CENTER = 0;
 byte lastDirection = JOYSTICK_DIRECTION_NONE;
 byte countDownDelay = 15;
 byte snakeLevel = 1;
-byte snakeLength = 2;
+int snakeLength = 2;
 int8_t xSnake[128] = {1,0,-1};
 int8_t ySnake[128] = {0,0,-1};
 byte currentSnakeDirection = JOYSTICK_DIRECTION_RIGHT;
 int8_t applePosition[2] = {2,5};
 boolean shouldGrow = false;
+int highScoreLength = 0;
 
+boolean isCoordInSnake(int8_t x, int8_t y, byte startFrom=0){
+  while(xSnake[startFrom] != -1){
+    if((xSnake[startFrom] == x) && (ySnake[startFrom] == y)){
+      return true;  
+    }
+    startFrom++;
+  }
+  return false;
+}
+
+boolean doesSnakeOverlap(){
+  byte i = 0;
+  while(xSnake[i] != -1){
+    if(isCoordInSnake(xSnake[i], ySnake[i], i+1)){
+      return true;
+    }
+    i++;
+  }
+  return false;
+}
+
+void setNewApplePosition(){
+  int possibleLocationsForTheApple = (X_WIDTH * Y_WIDTH) - snakeLength;
+  int choosenLocation = (int)random(possibleLocationsForTheApple);
+  int8_t x;
+  int8_t y;
+  //iterate through the possible locations until we get to the choosen location
+  int i=0;
+  for(y=(Y_WIDTH-1); y>-1; y--){
+    for(x=0; x<X_WIDTH; x++){
+      
+      if(!isCoordInSnake(x, y)){
+        i++;
+        if(i==choosenLocation){
+          applePosition[0] = x;
+          applePosition[1] = y;
+          return;  
+        }  
+      }
+    }  
+  }
+  //should never get here
+}
 
 void resetTheGame(){
   snakeLevel = 1;
@@ -33,6 +80,7 @@ void resetTheGame(){
   applePosition[0] = 2;
   applePosition[1] = 5;
   shouldGrow = false;
+  setNewApplePosition();
 }
 
 byte getJoystickDirection(){
@@ -106,49 +154,7 @@ boolean moveTheSnake(byte direction, boolean grow){
   return false;
 }
 
-boolean isCoordInSnake(int8_t x, int8_t y, byte startFrom=0){
-  while(xSnake[startFrom] != -1){
-    if((xSnake[startFrom] == x) && (ySnake[startFrom] == y)){
-      return true;  
-    }
-    startFrom++;
-  }
-  return false;
-}
 
-boolean doesSnakeOverlap(){
-  byte i = 0;
-  while(xSnake[i] != -1){
-    if(isCoordInSnake(xSnake[i], ySnake[i], i+1)){
-      return true;
-    }
-    i++;
-  }
-  return false;
-}
-
-void setNewApplePosition(byte direction){
-  byte possibleLocationsForTheApple = snakeLength - (X_WIDTH * Y_WIDTH);
-  long choosenLocation = random(possibleLocationsForTheApple);
-  int8_t x;
-  int8_t y;
-  //iterate through the possible locations until we get to the choosen location
-  int i=0;
-  for(y=(Y_WIDTH-1); y>-1; y--){
-    for(x=0; x<X_WIDTH; x++){
-      
-      if(!isCoordInSnake(x, y)){
-        i++;
-        if(i==choosenLocation){
-          applePosition[0] = x;
-          applePosition[1] = y;
-          return;  
-        }  
-      }
-    }  
-  }
-  //should never get here
-}
 
 byte readNewSnakeDirection(){
   for(byte i=0; i<(countDownDelay - snakeLevel ); i++){
@@ -173,6 +179,15 @@ void drawTheApple(){
 
 void snakeGameOver(){
   
+  highScoreLength = EEPROM.read(EEPROM_HIGH_SCORE);
+  if(snakeLength > highScoreLength){
+    EEPROM.put(EEPROM_HIGH_SCORE, snakeLength);
+    highScoreLength = EEPROM.read(EEPROM_HIGH_SCORE);  
+  }
+  arduboy.tunes.tone(1318, 160);
+  delay(160);
+  arduboy.tunes.tone(987, 400);
+  delay(400);
   while(true){
     if(arduboy.nextFrame()){
       arduboy.setCursor(27, 20);
@@ -203,7 +218,10 @@ void intro()
   arduboy.tunes.tone(987, 160);
   delay(160);
   arduboy.tunes.tone(1318, 400);
+  delay(400);
+  arduboy.tunes.tone(2000, 400);
   delay(2000);
+  
 }
 
 void drawMatrixScreen(){
@@ -223,6 +241,12 @@ void setup()
   arduboy.setFrameRate(60);
   arduboy.display();
   intro();
+  highScoreLength = (int)EEPROM.read(EEPROM_HIGH_SCORE);
+  if(highScoreLength == 0xFF){
+    highScoreLength = 2;
+    EEPROM.put(EEPROM_HIGH_SCORE,highScoreLength);
+  }
+  resetTheGame();
 }
 
 void loop() {
@@ -234,7 +258,7 @@ void loop() {
   isGameOverEvent = moveTheSnake(currentSnakeDirection, shouldGrow);
   if(shouldGrow){
     //last time we ate the apple so lets move it to a new location
-    setNewApplePosition(currentSnakeDirection);
+    setNewApplePosition();
   }
 
   clearMatrix();
@@ -243,8 +267,8 @@ void loop() {
   drawTheApple();
   drawMatrix();
   arduboy.setCursor(2, 57);
-  char displaystring[20];
-  sprintf(displaystring, "SNAKE LENGTH: %d", snakeLength);
+  char displaystring[22];
+  sprintf(displaystring, "LEN %d | HIGH %d", snakeLength, highScoreLength);
   arduboy.print(displaystring);
   arduboy.display();
   
